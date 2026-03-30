@@ -3,6 +3,7 @@ import {
   getMangaDetail,
   getLatestUpdates,
   ALL_GENRES,
+  ALL_RATINGS,
 } from '../services/data.service.js';
 
 export async function listManga(req, res) {
@@ -37,4 +38,8 @@ export async function latestUpdates(req, res) {
 
 export async function getGenres(req, res) {
   res.json(ALL_GENRES);
+}
+
+export async function getRatings(req, res) {
+  res.json(ALL_RATINGS);
 }

@@ -16,6 +16,8 @@ import {
     mdGetChapterPages,
     mdSearchManga,
     mdGetLatestUpdates,
+    mdGetTags,
+    mdGetTagsSync,
 } from './mangadex.service.js';
 
 // Cache TTLs (seconds)
@@ -86,15 +88,9 @@ export async function getLatestUpdates() {
     return cached(key, CACHE_LIST, () => mdGetLatestUpdates());
 }
 
-/**
- * Static genre list (not scraped — stable enough to hardcode).
- */
-export const ALL_GENRES = [
-    'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy',
-    'Horror', 'Isekai', 'Martial Arts', 'Mystery', 'Psychological',
-    'Romance', 'School', 'Sci-Fi', 'Slice of Life', 'Sports',
-    'Supernatural', 'Thriller', 'Historical',
-];
+export const ALL_GENRES = mdGetTagsSync();
+export const ALL_RATINGS = ['Safe', 'Suggestive', 'Erotica', 'Pornographic'];
+
 
 /**
  * Expose cache stats for debugging (optional health endpoint).
