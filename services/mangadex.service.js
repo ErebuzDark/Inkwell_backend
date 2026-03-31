@@ -18,10 +18,21 @@ const mdApi = axios.create({
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getTitle(attr) {
+    // 1. Primary English title
+    if (attr.title?.en) return attr.title.en;
+
+    // 2. Scan altTitles for English
+    if (attr.altTitles) {
+        const enAlt = attr.altTitles.find((t) => t.en);
+        if (enAlt && enAlt.en) return enAlt.en;
+    }
+
+    // 3. Fallbacks
     return (
-        attr.title?.en ||
         attr.title?.['ja-ro'] ||
+        attr.title?.['ko-ro'] ||
         attr.title?.ja ||
+        attr.title?.ko ||
         Object.values(attr.title || {})[0] ||
         'Untitled'
     );
@@ -140,10 +151,26 @@ export async function mdGetChapterPages(chapterId) {
     const { data } = await mdApi.get(`/at-home/server/${chapterId}`);
     const { baseUrl, chapter } = data;
 
-    const pages = chapter.data.map((file, i) => ({
-        index: i + 1,
-        url: `${baseUrl}/data/${chapter.hash}/${file}`,
-    }));
+    const pages = chapter.data.map((file, i) => {
+        const saverFile = chapter.dataSaver[i];
+        const fallbacks = [];
+
+        // 1. Official primary (very reliable)
+        fallbacks.push(`https://uploads.mangadex.org/data/${chapter.hash}/${file}`);
+
+        // 2. Node data-saver (using saverFile)
+        if (saverFile) {
+            fallbacks.push(`${baseUrl}/data-saver/${chapter.hash}/${saverFile}`);
+            // 3. Official data-saver (using saverFile)
+            fallbacks.push(`https://uploads.mangadex.org/data-saver/${chapter.hash}/${saverFile}`);
+        }
+
+        return {
+            index: i + 1,
+            url: `${baseUrl}/data/${chapter.hash}/${file}`,
+            fallbackUrls: fallbacks,
+        };
+    });
 
     return {
         chapterId,
