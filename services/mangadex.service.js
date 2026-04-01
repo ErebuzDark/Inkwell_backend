@@ -11,8 +11,37 @@ const COVER_BASE = 'https://uploads.mangadex.org/covers';
 
 const mdApi = axios.create({
     baseURL: BASE,
-    timeout: 12000,
+    timeout: 15000,
     headers: { 'User-Agent': 'Inkwell-MangaReader/1.0' },
+});
+
+// Retry interceptor with exponential backoff for 429/5xx
+mdApi.interceptors.response.use(null, async (error) => {
+    const config = error.config;
+    if (!config) return Promise.reject(error);
+
+    config._retryCount = config._retryCount || 0;
+    const MAX_RETRIES = 3;
+
+    const status = error.response?.status;
+    const shouldRetry = status === 429 || (status >= 500 && status < 600);
+
+    if (!shouldRetry || config._retryCount >= MAX_RETRIES) {
+        return Promise.reject(error);
+    }
+
+    config._retryCount++;
+
+    // Use Retry-After header if present, otherwise exponential backoff
+    const retryAfter = error.response?.headers?.['retry-after'];
+    const delay = retryAfter
+        ? parseInt(retryAfter) * 1000
+        : Math.pow(2, config._retryCount - 1) * 1000; // 1s, 2s, 4s
+
+    console.log(`[MangaDex] Retry ${config._retryCount}/${MAX_RETRIES} in ${delay}ms (HTTP ${status})`);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+
+    return mdApi(config);
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -268,6 +297,14 @@ export async function mdGetTags() {
     return mdGetTagsSync();
 }
 
+// Sort order mapping for MangaDex API
+const SORT_MAP = {
+    follows: { 'order[followedCount]': 'desc' },
+    rating: { 'order[rating]': 'desc' },
+    update: { 'order[latestUploadedChapter]': 'desc' },
+    title: { 'order[title]': 'asc' },
+};
+
 export async function mdSearchManga(query, filters = {}) {
     const page = parseInt(filters.page) || 1;
     const limit = 24;
@@ -292,8 +329,42 @@ export async function mdSearchManga(query, filters = {}) {
         }
     }
 
+    // Multi-tag support: genres (comma-separated)
+    const includedTags = [];
     if (filters.genre && TAG_MAP[filters.genre]) {
-        params.includedTags = [TAG_MAP[filters.genre]];
+        includedTags.push(TAG_MAP[filters.genre]);
+    }
+    if (filters.genres) {
+        const genreList = filters.genres.split(',').map(g => g.trim()).filter(Boolean);
+        genreList.forEach(g => {
+            if (TAG_MAP[g] && !includedTags.includes(TAG_MAP[g])) {
+                includedTags.push(TAG_MAP[g]);
+            }
+        });
+    }
+    if (includedTags.length > 0) {
+        params.includedTags = includedTags;
+    }
+
+    // Excluded tags support
+    if (filters.excludeGenres) {
+        const excludeList = filters.excludeGenres.split(',').map(g => g.trim()).filter(Boolean);
+        const excludedTags = excludeList
+            .map(g => TAG_MAP[g])
+            .filter(Boolean);
+        if (excludedTags.length > 0) {
+            params.excludedTags = excludedTags;
+        }
+    }
+
+    // Sort support
+    if (filters.sort && SORT_MAP[filters.sort]) {
+        Object.assign(params, SORT_MAP[filters.sort]);
+    } else {
+        // Default sort: relevance for search, follows for browse
+        if (!query?.trim()) {
+            params['order[followedCount]'] = 'desc';
+        }
     }
 
     const { data } = await mdApi.get('/manga', { params });
@@ -350,4 +421,55 @@ export async function mdGetLatestUpdates() {
             },
         };
     }).filter(Boolean);
+}
+
+export async function mdGetRelatedManga(id) {
+    // Get the source manga's tags first
+    const { data: mangaRes } = await mdApi.get(`/manga/${id}`, {
+        params: { includes: ['cover_art'] },
+    });
+
+    const tags = (mangaRes.data.attributes.tags || [])
+        .filter((t) => t.attributes?.group === 'genre')
+        .map((t) => t.id)
+        .slice(0, 3); // Use top 3 genre tags
+
+    if (tags.length === 0) return [];
+
+    const { data } = await mdApi.get('/manga', {
+        params: {
+            ...COMMON_PARAMS,
+            limit: 12,
+            includedTags: tags,
+            'order[followedCount]': 'desc',
+            includes: ['cover_art', 'author'],
+            excludedOriginalLanguage: [],
+        },
+    });
+
+    return data.data
+        .filter((m) => m.id !== id) // Exclude the source manga
+        .map(mapManga)
+        .slice(0, 8);
+}
+
+export async function mdGetTrending() {
+    // Get manga with recent updates sorted by follows
+    const since = new Date();
+    since.setDate(since.getDate() - 30); // Last 30 days
+
+    const { data } = await mdApi.get('/manga', {
+        params: {
+            ...COMMON_PARAMS,
+            limit: 12,
+            'order[followedCount]': 'desc',
+            includes: ['cover_art', 'author'],
+            updatedAtSince: since.toISOString().split('.')[0],
+        },
+    });
+
+    return {
+        titles: data.data.map(mapManga),
+        source: 'mangadex',
+    };
 }

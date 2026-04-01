@@ -18,6 +18,8 @@ import {
     mdGetLatestUpdates,
     mdGetTags,
     mdGetTagsSync,
+    mdGetRelatedManga,
+    mdGetTrending,
 } from './mangadex.service.js';
 
 // Cache TTLs (seconds)
@@ -28,14 +30,34 @@ const CACHE_SEARCH = 2 * 60;   //  2 min  — search results
 
 const cache = new NodeCache({ stdTTL: CACHE_LIST, checkperiod: 120 });
 
-// ─── Cached wrapper ───────────────────────────────────────────────────────────
+// ─── Cached wrapper with stale-while-revalidate ──────────────────────────────
 async function cached(key, ttl, fn) {
     const hit = cache.get(key);
-    if (hit !== undefined) return hit;
+    if (hit !== undefined) {
+        // Stale-while-revalidate: if less than 20% TTL remaining, refresh in bg
+        const ttlRemaining = cache.getTtl(key);
+        if (ttlRemaining && (ttlRemaining - Date.now()) < ttl * 200) {
+            fn().then((value) => cache.set(key, value, ttl)).catch(() => {});
+        }
+        return hit;
+    }
     const value = await fn();
     cache.set(key, value, ttl);
     return value;
 }
+
+// ─── Cache warming on startup ────────────────────────────────────────────────
+setTimeout(async () => {
+    try {
+        console.log('[Cache] Warming popular & trending...');
+        await cached('popular_p1', CACHE_LIST, () => mdGetPopularManga(1));
+        await cached('trending', CACHE_LIST, () => mdGetTrending());
+        await cached('latest_updates', CACHE_LIST, () => mdGetLatestUpdates());
+        console.log('[Cache] Warm-up complete ✓');
+    } catch (err) {
+        console.warn('[Cache] Warm-up failed:', err.message);
+    }
+}, 2000);
 
 // ─── Public API (used by controllers) ────────────────────────────────────────
 
@@ -97,4 +119,20 @@ export const ALL_RATINGS = ['Safe', 'Suggestive', 'Erotica', 'Pornographic'];
  */
 export function getCacheStats() {
     return cache.getStats();
+}
+
+/**
+ * Get related manga by shared genres/tags.
+ */
+export async function getRelatedManga(id) {
+    const key = `related_${id}`;
+    return cached(key, CACHE_DETAIL, () => mdGetRelatedManga(id));
+}
+
+/**
+ * Get trending manga (recently popular).
+ */
+export async function getTrendingManga() {
+    const key = 'trending';
+    return cached(key, CACHE_LIST, () => mdGetTrending());
 }

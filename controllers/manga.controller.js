@@ -2,6 +2,8 @@ import {
   getPopularManga,
   getMangaDetail,
   getLatestUpdates,
+  getRelatedManga,
+  getTrendingManga,
   ALL_GENRES,
   ALL_RATINGS,
 } from '../services/data.service.js';
@@ -30,6 +32,25 @@ export async function getManga(req, res) {
 export async function latestUpdates(req, res) {
   try {
     const data = await getLatestUpdates();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function getRelated(req, res) {
+  try {
+    const { id } = req.params;
+    const data = await getRelatedManga(id);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function getTrending(req, res) {
+  try {
+    const data = await getTrendingManga();
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
