@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ 
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173', 
+  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080'], 
   credentials: true 
 }));
 app.use(express.json());
@@ -50,7 +50,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🚀  Inkwell API  →  http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀  Inkwell API  →  http://localhost:${PORT} (and 0.0.0.0)`);
   console.log(`📡  Strategy: MangaDex API (Exclusive)\n`);
 });
