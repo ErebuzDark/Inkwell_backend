@@ -86,24 +86,31 @@ export const getAnimeInfo = async (req, res) => {
 };
 
 export const getEpisodeWatchLinks = async (req, res) => {
+  const { episodeId } = req.params;
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  console.log(`\n📺 Watch Request: ${episodeId}`);
+  console.log(`📱 User-Agent: ${userAgent}`);
+
   try {
-    const { episodeId } = req.params;
     let data;
     // Primary check for Saturn
     try {
+      console.log(`🔍 Trying Saturn for ${episodeId}...`);
       data = await saturn.fetchEpisodeSources(episodeId);
       if (!data.sources || data.sources.length === 0) throw new Error('No sources in Saturn');
+      console.log(`✅ Success (Saturn)`);
     } catch (e) {
       // Fallback for AnimeKai
       try {
+        console.log(`🔍 Falling back to AnimeKai for ${episodeId}... (Saturn failed: ${e.message})`);
         data = await animekai.fetchEpisodeSources(episodeId);
+        console.log(`✅ Success (AnimeKai)`);
       } catch (err) {
+        console.warn(`❌ All providers failed for ${episodeId}: ${err.message}`);
         // Final fallback: check for alternative servers if Kai returns empty
         if (err.message.includes('Server megaup not found')) {
             const servers = await animekai.fetchEpisodeServers(episodeId);
             if (servers.length > 0) {
-               // Re-implementation of fetch sources logic for the first available server
-               // This is a minimal fallback to avoid the 500 error
                return res.status(404).json({ error: 'Desired server not found, try another title.' });
             }
         }

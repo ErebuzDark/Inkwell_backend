@@ -21,9 +21,17 @@ export const proxyStream = async (req, res) => {
       }
     }
 
-    // Default User-Agent if not provided
+    // Default User-Agent to a common desktop one to avoid mobile-specific blocks
     if (!headers['User-Agent'] && !headers['user-agent']) {
-      headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+    }
+
+    // Auto-set Referer if missing to match the target domain
+    if (!headers['Referer'] && !headers['referer']) {
+      try {
+        const targetUrl = new URL(decodeURIComponent(url));
+        headers['referer'] = targetUrl.origin + '/';
+      } catch (e) {}
     }
 
     // Forward Range header from client to support seeking
