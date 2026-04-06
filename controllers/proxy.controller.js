@@ -26,6 +26,11 @@ export const proxyStream = async (req, res) => {
       headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     }
 
+    // Forward Range header from client to support seeking
+    if (req.headers.range) {
+      headers['Range'] = req.headers.range;
+    }
+
     const response = await axios({
       method: 'get',
       url: decodeURIComponent(url),
@@ -38,9 +43,17 @@ export const proxyStream = async (req, res) => {
     const contentType = response.headers['content-type'];
     res.setHeader('Content-Type', contentType || 'application/octet-stream');
     
-    // Copy essential cache headers from source
+    // Copy essential cache and streaming headers from source
     if (response.headers['cache-control']) res.setHeader('Cache-Control', response.headers['cache-control']);
     if (response.headers['expires']) res.setHeader('Expires', response.headers['expires']);
+    if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
+    if (response.headers['accept-ranges']) res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
+    if (response.headers['content-range']) res.setHeader('Content-Range', response.headers['content-range']);
+    
+    // If it's a partial content response, return 206
+    if (response.status === 206) {
+       res.status(206);
+    }
 
     // Handle M3U8 rewriting (Playlist Manifests)
     if (contentType && (contentType.includes('mpegurl') || contentType.includes('x-mpegURL') || url.includes('.m3u8'))) {
