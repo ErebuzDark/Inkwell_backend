@@ -1,6 +1,6 @@
 import { ANIME } from '@consumet/extensions';
 
-const animekai = new ANIME.AnimeKai();
+const provider = new ANIME.AnimeKai();
 // Fallback provider if needed
 // const hianime = new ANIME.Hianime();
 
@@ -12,7 +12,7 @@ export const listAnime = async (req, res) => {
     let data;
     if (genre) {
       // Genre search priority
-      data = await animekai.genreSearch(genre, pageNum);
+      data = await provider.genreSearch(genre, pageNum);
     } else if (type && type !== 'All') {
       // Type listing
       const typeMethodMap = {
@@ -23,10 +23,10 @@ export const listAnime = async (req, res) => {
         'Special': 'fetchSpecial'
       };
       const method = typeMethodMap[type] || 'fetchNewReleases';
-      data = await animekai[method](pageNum);
+      data = await provider[method](pageNum);
     } else {
       // Default listing
-      data = await animekai.fetchNewReleases(pageNum);
+      data = await provider.fetchNewReleases(pageNum);
     }
     
     res.json({ source: 'consumet (animekai)', ...data });
@@ -39,7 +39,7 @@ export const listAnime = async (req, res) => {
 export const getTrending = async (req, res) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : 1;
-    const data = await animekai.fetchRecentlyUpdated(page);
+    const data = await provider.fetchRecentlyUpdated(page);
     res.json({ source: 'consumet (animekai)', ...data });
   } catch (error) {
     console.error('getTrending Error:', error);
@@ -53,7 +53,7 @@ export const searchAnime = async (req, res) => {
     if (!q) return res.status(400).json({ error: 'Missing search query' });
     
     const pageNum = page ? parseInt(page) : 1;
-    const data = await animekai.search(q, pageNum);
+    const data = await provider.search(q, pageNum);
     res.json({ source: 'consumet (animekai)', ...data });
   } catch (error) {
     console.error('searchAnime Error:', error);
@@ -64,7 +64,7 @@ export const searchAnime = async (req, res) => {
 export const getAnimeInfo = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await animekai.fetchAnimeInfo(id);
+    const data = await provider.fetchAnimeInfo(id);
     res.json({ source: 'consumet (animekai)', ...data });
   } catch (error) {
     console.error('getAnimeInfo Error:', error);
@@ -75,7 +75,7 @@ export const getAnimeInfo = async (req, res) => {
 export const getEpisodeWatchLinks = async (req, res) => {
   try {
     const { episodeId } = req.params;
-    const data = await animekai.fetchEpisodeSources(episodeId);
+    const data = await provider.fetchEpisodeSources(episodeId);
     res.json({ source: 'consumet (animekai)', ...data });
   } catch (error) {
     console.error('getEpisodeWatchLinks Error:', error);
@@ -85,7 +85,7 @@ export const getEpisodeWatchLinks = async (req, res) => {
 
 export const getGenres = async (req, res) => {
   try {
-    const data = await animekai.fetchGenres();
+    const data = await provider.fetchGenres();
     res.json(data);
   } catch (error) {
     console.error('getGenres Error:', error);
