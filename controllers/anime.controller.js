@@ -4,6 +4,19 @@ import { ANIME } from '@consumet/extensions';
 const saturn = new ANIME.AnimeSaturn();
 const animekai = new ANIME.AnimeKai();
 
+// Helper to sanitize headers for safe Base64 encoding on the frontend
+const sanitizeHeaders = (headers) => {
+  if (!headers) return null;
+  const clean = {};
+  for (const [key, value] of Object.entries(headers)) {
+    // Only keep essential headers and ensure values are strings and mostly ASCII
+    if (['referer', 'user-agent', 'cookie', 'Referer', 'User-Agent', 'Cookie'].includes(key)) {
+      clean[key] = String(value).replace(/[^\x00-\x7F]/g, '');
+    }
+  }
+  return Object.keys(clean).length > 0 ? clean : null;
+};
+
 export const listAnime = async (req, res) => {
   try {
     const { page = 1, type, genre } = req.query;
@@ -117,7 +130,11 @@ export const getEpisodeWatchLinks = async (req, res) => {
         throw err;
       }
     }
-    res.json({ source: 'consumet (multi)', ...data });
+    res.json({ 
+      source: 'consumet (multi)', 
+      ...data,
+      headers: sanitizeHeaders(data.headers)
+    });
   } catch (error) {
     console.error('getEpisodeWatchLinks Error:', error);
     res.status(404).json({ error: 'Episode sources not found. Please try another anime.' });
