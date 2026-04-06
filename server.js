@@ -4,13 +4,15 @@ import rateLimit from 'express-rate-limit';
 import mangaRoutes from './routes/manga.routes.js';
 import chapterRoutes from './routes/chapter.routes.js';
 import searchRoutes from './routes/search.routes.js';
+import animeRoutes from './routes/anime.routes.js';
+import proxyRoutes from './routes/proxy.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ 
-  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080'], 
-  credentials: true 
+app.use(cors({
+  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080'],
+  credentials: true
 }));
 app.use(express.json());
 
@@ -36,6 +38,8 @@ app.use('/api', limiter);
 app.use('/api/manga', mangaRoutes);
 app.use('/api/chapters', chapterRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/anime', animeRoutes);
+app.use('/api/proxy', proxyRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
