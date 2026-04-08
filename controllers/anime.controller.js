@@ -84,13 +84,32 @@ export const getAnimeInfo = async (req, res) => {
   try {
     const { id } = req.params;
     let data;
-    // Determine provider from ID pattern or sequential check
+    
+    // First try fetching directly from Saturn (most reliable streams against DC IP blocks)
     try {
       data = await saturn.fetchAnimeInfo(id);
       if (!data.title) throw new Error('Empty title in Saturn');
     } catch (e) {
-      data = await animekai.fetchAnimeInfo(id);
+      // If Saturn tracking fails (e.g. AnimeKai IDs from homepage/trending),
+      // fetch from Kai to get the title, then transparently bridge back to Saturn.
+      const kaiData = await animekai.fetchAnimeInfo(id);
+      if (kaiData && kaiData.title) {
+        try {
+          // Attempt to map the Kai title back to a Saturn entry
+          const saturnSearch = await saturn.search(kaiData.title);
+          if (saturnSearch.results && saturnSearch.results.length > 0) {
+            data = await saturn.fetchAnimeInfo(saturnSearch.results[0].id);
+          } else {
+            data = kaiData; 
+          }
+        } catch (bridgeErr) {
+          data = kaiData;
+        }
+      } else {
+        data = kaiData;
+      }
     }
+    
     res.json({ source: 'consumet (multi)', ...data });
   } catch (error) {
     console.error('getAnimeInfo Error:', error);
