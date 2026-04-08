@@ -10,8 +10,10 @@ import proxyRoutes from './routes/proxy.routes.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.set('trust proxy', 1);
+
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080'],
+  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080', 'https://inkwell-frontend-olive.vercel.app'],
   credentials: true
 }));
 app.use(express.json());

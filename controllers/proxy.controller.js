@@ -83,7 +83,7 @@ export const proxyStream = async (req, res) => {
           }
           
           // Encode back into this proxy endpoint
-          const proxyUrl = `${req.protocol}://${req.get('host')}/api/proxy?url=${encodeURIComponent(absoluteUrl)}&headers=${customHeadersStr || ''}`;
+          const proxyUrl = `${req.protocol}://${req.get('host')}/api/proxy?url=${encodeURIComponent(absoluteUrl)}&headers=${encodeURIComponent(customHeadersStr || '')}`;
           return proxyUrl;
         });
         
